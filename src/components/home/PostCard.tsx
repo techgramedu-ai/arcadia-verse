@@ -1,23 +1,31 @@
-import { Heart, MessageCircle, Share2, Bookmark, MoreHorizontal, Play, Sparkles } from "lucide-react";
+import { Heart, MessageCircle, Share2, Bookmark, MoreHorizontal, Play, Sparkles, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
+import { useAuth } from "@/contexts/AuthContext";
+import { useLikePost } from "@/hooks/usePosts";
+import { useComments, useCreateComment } from "@/hooks/useComments";
+import { toast } from "sonner";
+import { useNavigate } from "react-router-dom";
+import { formatDistanceToNow } from "date-fns";
 
 interface PostCardProps {
+  id: string;
   author: {
     name: string;
     username: string;
-    avatar: string;
+    avatar: string | null;
     verified?: boolean;
-    badge?: string;
+    badge?: string | null;
   };
   content: {
     text: string;
     media?: {
       type: "image" | "video";
       url: string;
-    };
-    tags?: string[];
+    } | null;
+    tags?: string[] | null;
   };
   engagement: {
     likes: number;
@@ -25,7 +33,8 @@ interface PostCardProps {
     shares: number;
   };
   timestamp: string;
-  examCategory?: string;
+  examCategory?: string | null;
+  userHasLiked?: boolean;
 }
 
 const avatarColors = [
@@ -36,17 +45,53 @@ const avatarColors = [
   "from-cosmic-green to-cosmic-cyan",
 ];
 
-export const PostCard = ({ author, content, engagement, timestamp, examCategory }: PostCardProps) => {
-  const [liked, setLiked] = useState(false);
+export const PostCard = ({ id, author, content, engagement, timestamp, examCategory, userHasLiked = false }: PostCardProps) => {
+  const { user } = useAuth();
+  const navigate = useNavigate();
   const [saved, setSaved] = useState(false);
-  const [likes, setLikes] = useState(engagement.likes);
+  const [showComments, setShowComments] = useState(false);
+  const [newComment, setNewComment] = useState('');
+
+  const likeMutation = useLikePost();
+  const { data: comments } = useComments(showComments ? id : '');
+  const createCommentMutation = useCreateComment();
 
   const handleLike = () => {
-    setLiked(!liked);
-    setLikes(liked ? likes - 1 : likes + 1);
+    if (!user) {
+      toast.error('Please log in to like posts');
+      navigate('/auth');
+      return;
+    }
+    likeMutation.mutate({ postId: id, isLiked: userHasLiked });
+  };
+
+  const handleComment = () => {
+    if (!user) {
+      toast.error('Please log in to comment');
+      navigate('/auth');
+      return;
+    }
+    setShowComments(!showComments);
+  };
+
+  const handleSubmitComment = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newComment.trim()) return;
+    createCommentMutation.mutate(
+      { postId: id, content: newComment },
+      { onSuccess: () => setNewComment('') }
+    );
+  };
+
+  const handleShare = () => {
+    navigator.clipboard.writeText(window.location.origin + '/post/' + id);
+    toast.success('Link copied to clipboard!');
   };
 
   const colorIndex = author.name.charCodeAt(0) % avatarColors.length;
+  const avatarInitial = author.avatar || author.name.charAt(0).toUpperCase();
+  
+  const formattedTime = timestamp ? formatDistanceToNow(new Date(timestamp), { addSuffix: true }) : '';
 
   return (
     <article className="glass rounded-2xl overflow-hidden animate-fade-in">
@@ -58,7 +103,7 @@ export const PostCard = ({ author, content, engagement, timestamp, examCategory 
               "w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold",
               `bg-gradient-to-br ${avatarColors[colorIndex]}`
             )}>
-              {author.avatar}
+              {avatarInitial}
             </div>
           </div>
           <div>
@@ -78,7 +123,7 @@ export const PostCard = ({ author, content, engagement, timestamp, examCategory 
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <span>@{author.username}</span>
               <span>•</span>
-              <span>{timestamp}</span>
+              <span>{formattedTime}</span>
             </div>
           </div>
         </div>
@@ -121,9 +166,14 @@ export const PostCard = ({ author, content, engagement, timestamp, examCategory 
               </button>
             </div>
           ) : (
-            <div className="w-full h-full bg-gradient-to-br from-card to-muted flex items-center justify-center">
-              <span className="text-muted-foreground text-sm">Media Content</span>
-            </div>
+            <img 
+              src={content.media.url} 
+              alt="Post media" 
+              className="w-full h-full object-cover"
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = '/placeholder.svg';
+              }}
+            />
           )}
         </div>
       )}
@@ -136,21 +186,22 @@ export const PostCard = ({ author, content, engagement, timestamp, examCategory 
             size="sm"
             className={cn(
               "gap-2 px-3",
-              liked && "text-destructive"
+              userHasLiked && "text-destructive"
             )}
             onClick={handleLike}
+            disabled={likeMutation.isPending}
           >
             <Heart
               size={18}
-              className={cn(liked && "fill-current")}
+              className={cn(userHasLiked && "fill-current")}
             />
-            <span className="text-sm">{likes.toLocaleString()}</span>
+            <span className="text-sm">{engagement.likes.toLocaleString()}</span>
           </Button>
-          <Button variant="ghost" size="sm" className="gap-2 px-3">
-            <MessageCircle size={18} />
+          <Button variant="ghost" size="sm" className="gap-2 px-3" onClick={handleComment}>
+            <MessageCircle size={18} className={cn(showComments && "text-primary")} />
             <span className="text-sm">{engagement.comments.toLocaleString()}</span>
           </Button>
-          <Button variant="ghost" size="sm" className="gap-2 px-3">
+          <Button variant="ghost" size="sm" className="gap-2 px-3" onClick={handleShare}>
             <Share2 size={18} />
             <span className="text-sm">{engagement.shares.toLocaleString()}</span>
           </Button>
@@ -164,6 +215,52 @@ export const PostCard = ({ author, content, engagement, timestamp, examCategory 
           <Bookmark size={18} className={cn(saved && "fill-current")} />
         </Button>
       </div>
+
+      {/* Comments Section */}
+      {showComments && (
+        <div className="px-4 pb-4 border-t border-border/50 space-y-3">
+          {/* Comment Input */}
+          <form onSubmit={handleSubmitComment} className="flex gap-2 pt-3">
+            <Input
+              placeholder="Add a comment..."
+              value={newComment}
+              onChange={(e) => setNewComment(e.target.value)}
+              className="flex-1"
+            />
+            <Button 
+              type="submit" 
+              size="icon" 
+              disabled={!newComment.trim() || createCommentMutation.isPending}
+              className="bg-primary/20 hover:bg-primary/30"
+            >
+              <Send size={16} />
+            </Button>
+          </form>
+
+          {/* Comments List */}
+          <div className="space-y-2 max-h-48 overflow-y-auto">
+            {comments?.map((comment) => (
+              <div key={comment.id} className="flex gap-2 p-2 rounded-lg bg-muted/30">
+                <div className={cn(
+                  "w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0",
+                  `bg-gradient-to-br ${avatarColors[(comment.profiles?.username?.charCodeAt(0) || 0) % avatarColors.length]}`
+                )}>
+                  {comment.profiles?.display_name?.charAt(0) || 'U'}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <span className="text-xs font-semibold text-foreground">
+                    {comment.profiles?.display_name || 'User'}
+                  </span>
+                  <p className="text-sm text-muted-foreground">{comment.content}</p>
+                </div>
+              </div>
+            ))}
+            {comments?.length === 0 && (
+              <p className="text-center text-sm text-muted-foreground py-2">No comments yet. Be the first!</p>
+            )}
+          </div>
+        </div>
+      )}
     </article>
   );
 };
