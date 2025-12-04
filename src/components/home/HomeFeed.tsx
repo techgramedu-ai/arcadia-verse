@@ -5,82 +5,47 @@ import { SuggestedConnections } from "./SuggestedConnections";
 import { ExamCategories } from "./ExamCategories";
 import { TopBar } from "@/components/layout/TopBar";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Sparkles, Users, TrendingUp } from "lucide-react";
+import { Sparkles, Users, TrendingUp, Loader2 } from "lucide-react";
+import { usePosts } from "@/hooks/usePosts";
+import { Button } from "@/components/ui/button";
+import { formatDistanceToNow } from "date-fns";
 
-const feedPosts = [
-  {
+// Adapter function to transform database post to PostCard format
+const adaptPostForCard = (post: any) => {
+  const content = post.content || {};
+  const caption = post.caption || content.text || "";
+  const tags = content.tags || [];
+
+  return {
     author: {
-      name: "Priya Sharma",
-      username: "priyajee2025",
-      avatar: "P",
-      verified: true,
-      badge: "JEE AIR 247",
+      name: post.user?.display_name || post.user?.handle || "Unknown User",
+      username: post.user?.handle || "user",
+      avatar: post.user?.avatar_url || post.user?.handle?.charAt(0).toUpperCase() || "U",
+      verified: post.user?.is_verified || false,
+      badge: post.user?.metadata?.badge,
     },
     content: {
-      text: "Just finished solving 100 problems from HC Verma! 📚 The key to JEE Physics is understanding concepts deeply, not just mugging formulas. Here's my approach for Mechanics...",
-      media: { type: "image" as const, url: "/placeholder.jpg" },
-      tags: ["JEEPreparation", "Physics", "HCVerma", "IITDreams"],
+      text: caption,
+      media: content.media,
+      tags: Array.isArray(tags) ? tags : [],
     },
-    engagement: { likes: 2453, comments: 342, shares: 128 },
-    timestamp: "2h ago",
-    examCategory: "JEE Advanced 2025",
-  },
-  {
-    author: {
-      name: "Dr. Amit Kumar",
-      username: "amitneetmentor",
-      avatar: "A",
-      verified: true,
-      badge: "AIIMS Faculty",
+    engagement: {
+      likes: 0, // Will be populated from likes table
+      comments: 0, // Will be populated from comments table
+      shares: 0,
     },
-    content: {
-      text: "NEET Biology tip: Focus on NCERT first! 90% of questions come directly from the textbook. Don't fall into the trap of fancy reference books until you've mastered NCERT. Start with these chapters...",
-      tags: ["NEET2025", "Biology", "NCERTFirst", "MedicalAspirants"],
-    },
-    engagement: { likes: 5621, comments: 892, shares: 456 },
-    timestamp: "4h ago",
-    examCategory: "NEET UG 2025",
-  },
-  {
-    author: {
-      name: "Rajesh Mishra",
-      username: "rajeshupsccse",
-      avatar: "R",
-      verified: true,
-      badge: "IAS 2023",
-    },
-    content: {
-      text: "My UPSC journey: From 3 failed attempts to AIR 45. The game-changer? I stopped studying 14 hours and started studying smart. Quality over quantity. Here's my revised strategy that finally worked...",
-      media: { type: "video" as const, url: "/placeholder.mp4" },
-      tags: ["UPSCMotivation", "CivilServices", "IASPrep", "NeverGiveUp"],
-    },
-    engagement: { likes: 12453, comments: 1892, shares: 2341 },
-    timestamp: "6h ago",
-    examCategory: "UPSC CSE 2025",
-  },
-  {
-    author: {
-      name: "Sarah Chen",
-      username: "sarahgre330",
-      avatar: "S",
-      verified: true,
-      badge: "GRE 330+",
-    },
-    content: {
-      text: "Just got my GRE score - 335! 🎉 For Quant, practice from ETS official materials. For Verbal, read The Economist daily. Here are the exact resources I used for my prep...",
-      tags: ["GREprep", "StudyAbroad", "GraduateSchool", "Masters"],
-    },
-    engagement: { likes: 3421, comments: 567, shares: 234 },
-    timestamp: "8h ago",
-    examCategory: "GRE/GMAT Prep",
-  },
-];
+    timestamp: formatDistanceToNow(new Date(post.created_at), { addSuffix: true }),
+    examCategory: content.examCategory,
+  };
+};
 
 export const HomeFeed = () => {
+  const { posts, isLoading, hasNextPage, fetchNextPage, isFetchingNextPage } = usePosts();
+
   return (
     <div className="min-h-screen">
-      <TopBar 
-        title="Your Feed" 
+      <TopBar
+        title="Your Feed"
         subtitle="Stay updated with your learning community"
       />
 
@@ -112,9 +77,48 @@ export const HomeFeed = () => {
 
           {/* Posts */}
           <div className="space-y-4">
-            {feedPosts.map((post, index) => (
-              <PostCard key={index} {...post} />
-            ))}
+            {isLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="text-center">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-4" />
+                  <p className="text-muted-foreground">Loading posts...</p>
+                </div>
+              </div>
+            ) : posts.length === 0 ? (
+              <div className="glass rounded-2xl p-12 text-center">
+                <Sparkles className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="font-semibold text-foreground mb-2">No posts yet</h3>
+                <p className="text-muted-foreground text-sm">
+                  Be the first to share something with the community!
+                </p>
+              </div>
+            ) : (
+              <>
+                {posts.map((post) => (
+                  <PostCard key={post.id} {...adaptPostForCard(post)} />
+                ))}
+
+                {/* Load More Button */}
+                {hasNextPage && (
+                  <div className="flex justify-center pt-4">
+                    <Button
+                      variant="glass"
+                      onClick={() => fetchNextPage()}
+                      disabled={isFetchingNextPage}
+                    >
+                      {isFetchingNextPage ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                          Loading...
+                        </>
+                      ) : (
+                        "Load More Posts"
+                      )}
+                    </Button>
+                  </div>
+                )}
+              </>
+            )}
           </div>
         </div>
 

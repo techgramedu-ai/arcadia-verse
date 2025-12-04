@@ -1,5 +1,7 @@
-import { Plus } from "lucide-react";
+import { Plus, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useStories } from "@/hooks/useStories";
+import { useAuth } from "@/hooks/useAuth";
 
 interface Story {
   id: string;
@@ -8,19 +10,6 @@ interface Story {
   hasUnread: boolean;
   isOwn?: boolean;
 }
-
-const stories: Story[] = [
-  { id: "own", name: "Your Story", avatar: "R", hasUnread: false, isOwn: true },
-  { id: "1", name: "JEE Topper", avatar: "A", hasUnread: true },
-  { id: "2", name: "NEET Prep", avatar: "P", hasUnread: true },
-  { id: "3", name: "UPSC Guide", avatar: "U", hasUnread: true },
-  { id: "4", name: "CAT Mentor", avatar: "C", hasUnread: false },
-  { id: "5", name: "GATE Expert", avatar: "G", hasUnread: true },
-  { id: "6", name: "IIT Life", avatar: "I", hasUnread: false },
-  { id: "7", name: "AIIMS Day", avatar: "M", hasUnread: true },
-  { id: "8", name: "GRE Tips", avatar: "T", hasUnread: false },
-  { id: "9", name: "IELTS Pro", avatar: "E", hasUnread: true },
-];
 
 const avatarColors = [
   "from-cosmic-cyan to-cosmic-blue",
@@ -35,10 +24,41 @@ const avatarColors = [
 ];
 
 export const StoryBar = () => {
+  const { stories, isLoading } = useStories();
+  const { user } = useAuth();
+
+  // Transform database stories to UI format
+  const displayStories: Story[] = [
+    // Add "Your Story" as first item
+    {
+      id: "own",
+      name: "Your Story",
+      avatar: user?.email?.charAt(0).toUpperCase() || "Y",
+      hasUnread: false,
+      isOwn: true
+    },
+    // Add real stories from database
+    ...stories.map((story: any) => ({
+      id: story.id,
+      name: story.user?.display_name || story.user?.handle || "User",
+      avatar: story.user?.avatar_url || story.user?.handle?.charAt(0).toUpperCase() || "U",
+      hasUnread: true, // Can be enhanced with view tracking
+      isOwn: false,
+    }))
+  ];
+
+  if (isLoading) {
+    return (
+      <div className="w-full py-4 px-2 flex items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+      </div>
+    );
+  }
+
   return (
     <div className="w-full overflow-x-auto scrollbar-cosmic py-4 px-2">
       <div className="flex gap-4">
-        {stories.map((story, index) => (
+        {displayStories.map((story, index) => (
           <div
             key={story.id}
             className="flex flex-col items-center gap-2 cursor-pointer group"
@@ -49,8 +69,8 @@ export const StoryBar = () => {
                 story.hasUnread
                   ? "bg-gradient-to-br from-cosmic-cyan via-cosmic-magenta to-cosmic-violet"
                   : story.isOwn
-                  ? "bg-border"
-                  : "bg-muted"
+                    ? "bg-border"
+                    : "bg-muted"
               )}
             >
               <div className="p-0.5 bg-background rounded-full">

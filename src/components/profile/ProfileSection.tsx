@@ -1,9 +1,9 @@
-import { 
-  MapPin, 
-  Calendar, 
-  Link as LinkIcon, 
-  Briefcase, 
-  GraduationCap, 
+import {
+  MapPin,
+  Calendar,
+  Link as LinkIcon,
+  Briefcase,
+  GraduationCap,
   Award,
   Edit3,
   Share2,
@@ -15,55 +15,52 @@ import {
   Play,
   Bookmark,
   Target,
-  TrendingUp
+  TrendingUp,
+  Loader2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TopBar } from "@/components/layout/TopBar";
 import { cn } from "@/lib/utils";
-
-const profileData = {
-  name: "Rahul Kumar",
-  username: "rahulkumar2025",
-  avatar: "R",
-  coverGradient: "from-cosmic-violet via-cosmic-magenta to-cosmic-cyan",
-  bio: "JEE 2025 Aspirant | Physics Lover | Content Creator | Sharing my journey from Kota to IIT",
-  location: "Kota, Rajasthan",
-  joined: "Joined March 2024",
-  website: "techgramlabs.site/rahul",
-  currentTarget: "JEE Advanced 2025",
-  stats: {
-    posts: 128,
-    followers: "12.5K",
-    following: 342,
-    reels: 45,
-  },
-  achievements: [
-    { icon: "🏆", title: "Top Creator", subtitle: "Physics Category" },
-    { icon: "⭐", title: "Rising Star", subtitle: "10K+ Followers" },
-    { icon: "📚", title: "Knowledge Guru", subtitle: "500+ Study Hours" },
-  ],
-  skills: ["Physics", "Mathematics", "Problem Solving", "Content Creation", "Mentoring"],
-  education: [
-    { institution: "Allen Career Institute", degree: "JEE Preparation", year: "2024-25" },
-    { institution: "Delhi Public School", degree: "Class 12 (PCM)", year: "2024" },
-  ],
-  experience: [
-    { role: "Physics Content Creator", company: "TechgramLabs", duration: "6 months" },
-    { role: "Peer Mentor", company: "Allen Career Institute", duration: "3 months" },
-  ],
-};
-
-const posts = [
-  { id: "1", type: "image", likes: "2.4K" },
-  { id: "2", type: "video", likes: "5.1K" },
-  { id: "3", type: "image", likes: "1.8K" },
-  { id: "4", type: "image", likes: "3.2K" },
-  { id: "5", type: "video", likes: "8.9K" },
-  { id: "6", type: "image", likes: "1.5K" },
-];
+import { useAuth } from "@/hooks/useAuth";
+import { useUser } from "@/hooks/useUsers";
+import { useUserPosts } from "@/hooks/usePosts";
+import { formatDistanceToNow } from "date-fns";
 
 export const ProfileSection = () => {
+  const { user: currentUser } = useAuth();
+  const { user: profileUser, stats, isLoading: isLoadingUser } = useUser(currentUser?.id || "");
+  const { posts, isLoading: isLoadingPosts } = useUserPosts(currentUser?.id || "");
+
+  if (isLoadingUser) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  const profileData = {
+    name: profileUser?.display_name || profileUser?.handle || "User",
+    username: profileUser?.handle || "user",
+    avatar: profileUser?.avatar_url || profileUser?.handle?.charAt(0).toUpperCase() || "U",
+    coverGradient: "from-cosmic-violet via-cosmic-magenta to-cosmic-cyan",
+    bio: profileUser?.metadata?.bio || "Welcome to my profile!",
+    location: profileUser?.metadata?.location || "",
+    joined: profileUser?.created_at ? `Joined ${formatDistanceToNow(new Date(profileUser.created_at), { addSuffix: true })}` : "",
+    website: profileUser?.metadata?.website || "",
+    currentTarget: profileUser?.metadata?.currentTarget || "",
+    stats: {
+      posts: stats?.posts_count || 0,
+      followers: stats?.followers_count || 0,
+      following: stats?.following_count || 0,
+      reels: 0,
+    },
+    achievements: profileUser?.metadata?.achievements || [],
+    skills: profileUser?.metadata?.skills || [],
+    education: profileUser?.metadata?.education || [],
+    experience: profileUser?.metadata?.experience || [],
+  };
   return (
     <div className="min-h-screen">
       <TopBar title="My Profile" subtitle="Your professional identity" />
@@ -292,23 +289,34 @@ export const ProfileSection = () => {
           </TabsList>
 
           <TabsContent value="posts" className="mt-4">
-            <div className="grid grid-cols-3 gap-2">
-              {posts.map((post) => (
-                <div
-                  key={post.id}
-                  className="aspect-square rounded-xl bg-gradient-to-br from-muted to-card relative group cursor-pointer overflow-hidden"
-                >
-                  {post.type === "video" && (
-                    <div className="absolute top-2 right-2">
-                      <Play size={16} className="text-foreground" />
+            {isLoadingPosts ? (
+              <div className="flex justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+              </div>
+            ) : posts.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground">
+                <Grid size={48} className="mx-auto mb-4 opacity-50" />
+                <p>No posts yet</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-3 gap-2">
+                {posts.map((post) => (
+                  <div
+                    key={post.id}
+                    className="aspect-square rounded-xl bg-gradient-to-br from-muted to-card relative group cursor-pointer overflow-hidden"
+                  >
+                    {post.content?.media?.type === "video" && (
+                      <div className="absolute top-2 right-2">
+                        <Play size={16} className="text-foreground" />
+                      </div>
+                    )}
+                    <div className="absolute inset-0 bg-background/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-4">
+                      <span className="text-foreground text-sm font-medium">View Post</span>
                     </div>
-                  )}
-                  <div className="absolute inset-0 bg-background/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-4">
-                    <span className="text-foreground text-sm font-medium">❤️ {post.likes}</span>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </TabsContent>
 
           <TabsContent value="reels" className="mt-4">

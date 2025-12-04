@@ -1,46 +1,9 @@
-import { UserPlus, Sparkles, ArrowRight } from "lucide-react";
+import { UserPlus, Sparkles, ArrowRight, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-
-interface SuggestedUser {
-  id: string;
-  name: string;
-  username: string;
-  avatar: string;
-  title: string;
-  mutualConnections: number;
-  aiReason: string;
-}
-
-const suggestedUsers: SuggestedUser[] = [
-  {
-    id: "1",
-    name: "Priya Sharma",
-    username: "priyajee2025",
-    avatar: "P",
-    title: "JEE AIR 247 | IIT Delhi",
-    mutualConnections: 12,
-    aiReason: "Studies similar topics as you",
-  },
-  {
-    id: "2",
-    name: "Rahul Verma",
-    username: "rahulneet",
-    avatar: "R",
-    title: "NEET Topper | AIIMS Delhi",
-    mutualConnections: 8,
-    aiReason: "From your city",
-  },
-  {
-    id: "3",
-    name: "Ananya Singh",
-    username: "ananyaupsc",
-    avatar: "A",
-    title: "UPSC CSE 2024 | IAS",
-    mutualConnections: 15,
-    aiReason: "Popular in your network",
-  },
-];
+import { useSearchUsers } from "@/hooks/useUsers";
+import { useSocial } from "@/hooks/useSocial";
+import { useAuth } from "@/hooks/useAuth";
 
 const avatarColors = [
   "from-cosmic-cyan to-cosmic-blue",
@@ -49,6 +12,24 @@ const avatarColors = [
 ];
 
 export const SuggestedConnections = () => {
+  const { user } = useAuth();
+  // For now, we'll show a simple search or could implement a recommendation algorithm
+  // Using empty search to get some users, or we could create a dedicated "suggested users" endpoint
+  const { users, isLoading } = useSearchUsers("");
+  const { followUser } = useSocial();
+
+  // Limit to 3 suggestions
+  const suggestedUsers = users.slice(0, 3);
+
+  const handleFollow = async (userId: string) => {
+    if (!user) return;
+    try {
+      await followUser({ followerId: user.id, followeeId: userId });
+    } catch (error) {
+      console.error("Follow error:", error);
+    }
+  };
+
   return (
     <div className="glass rounded-2xl p-4">
       <div className="flex items-center justify-between mb-4">
@@ -67,41 +48,60 @@ export const SuggestedConnections = () => {
         </Button>
       </div>
 
-      <div className="space-y-3">
-        {suggestedUsers.map((user, index) => (
-          <div
-            key={user.id}
-            className="p-3 rounded-xl bg-muted/30 hover:bg-muted/50 transition-all cursor-pointer group"
-          >
-            <div className="flex items-start gap-3">
-              <div className="story-ring">
-                <div className={cn(
-                  "w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold",
-                  `bg-gradient-to-br ${avatarColors[index]}`
-                )}>
-                  {user.avatar}
-                </div>
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-1.5">
-                  <span className="font-semibold text-foreground truncate">{user.name}</span>
-                  <div className="w-3.5 h-3.5 rounded-full bg-gradient-to-r from-cosmic-cyan to-cosmic-magenta flex items-center justify-center shrink-0">
-                    <Sparkles size={8} className="text-primary-foreground" />
+      {isLoading ? (
+        <div className="flex justify-center py-4">
+          <Loader2 className="h-6 w-6 animate-spin text-primary" />
+        </div>
+      ) : suggestedUsers.length === 0 ? (
+        <div className="text-center py-4 text-muted-foreground text-sm">
+          No suggestions available
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {suggestedUsers.map((suggestedUser, index) => (
+            <div
+              key={suggestedUser.id}
+              className="p-3 rounded-xl bg-muted/30 hover:bg-muted/50 transition-all cursor-pointer group"
+            >
+              <div className="flex items-start gap-3">
+                <div className="story-ring">
+                  <div className={cn(
+                    "w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold",
+                    `bg-gradient-to-br ${avatarColors[index % avatarColors.length]}`
+                  )}>
+                    {suggestedUser.avatar_url || suggestedUser.handle?.charAt(0).toUpperCase() || "U"}
                   </div>
                 </div>
-                <p className="text-xs text-muted-foreground truncate">{user.title}</p>
-                <div className="flex items-center gap-1.5 mt-1">
-                  <Sparkles size={10} className="text-cosmic-cyan" />
-                  <span className="text-[10px] text-cosmic-cyan">{user.aiReason}</span>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-semibold text-foreground truncate">
+                      {suggestedUser.display_name || suggestedUser.handle}
+                    </span>
+                    {suggestedUser.is_verified && (
+                      <div className="w-3.5 h-3.5 rounded-full bg-gradient-to-r from-cosmic-cyan to-cosmic-magenta flex items-center justify-center shrink-0">
+                        <Sparkles size={8} className="text-primary-foreground" />
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground truncate">@{suggestedUser.handle}</p>
+                  <div className="flex items-center gap-1.5 mt-1">
+                    <Sparkles size={10} className="text-cosmic-cyan" />
+                    <span className="text-[10px] text-cosmic-cyan">Suggested for you</span>
+                  </div>
                 </div>
+                <Button
+                  variant="neon"
+                  size="sm"
+                  className="shrink-0"
+                  onClick={() => handleFollow(suggestedUser.id)}
+                >
+                  <UserPlus size={14} />
+                </Button>
               </div>
-              <Button variant="neon" size="sm" className="shrink-0">
-                <UserPlus size={14} />
-              </Button>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 };

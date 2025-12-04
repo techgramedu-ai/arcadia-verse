@@ -1,12 +1,12 @@
-import { 
-  Home, 
-  Play, 
-  Camera, 
-  User, 
-  Palette, 
-  Users, 
-  Compass, 
-  MessageCircle, 
+import {
+  Home,
+  Play,
+  Camera,
+  User,
+  Palette,
+  Users,
+  Compass,
+  MessageCircle,
   Sparkles,
   Settings,
   Bell,
@@ -14,9 +14,14 @@ import {
   TrendingUp,
   BookOpen,
   Briefcase,
-  GraduationCap
+  GraduationCap,
+  LogOut
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuthContext } from "@/components/providers/AuthProvider";
+import { useAuth } from "@/hooks/useAuth";
+import { useNavigate } from "react-router-dom";
+import { Button } from "@/components/ui/button";
 
 interface NavItemProps {
   icon: React.ReactNode;
@@ -60,6 +65,19 @@ interface SidebarProps {
 }
 
 export const Sidebar = ({ activeTab, onTabChange }: SidebarProps) => {
+  const { user } = useAuthContext();
+  const { signOut } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    try {
+      await signOut();
+      navigate("/login");
+    } catch (error) {
+      console.error("Logout error:", error);
+    }
+  };
+
   const mainNavItems = [
     { id: "home", icon: <Home size={20} />, label: "Home Feed" },
     { id: "reels", icon: <Play size={20} />, label: "Reels" },
@@ -84,6 +102,14 @@ export const Sidebar = ({ activeTab, onTabChange }: SidebarProps) => {
     { id: "careers", icon: <Briefcase size={20} />, label: "Career Hub" },
     { id: "learn", icon: <BookOpen size={20} />, label: "Learn" },
   ];
+
+  // Get user initials for avatar
+  const getUserInitial = () => {
+    if (user?.email) {
+      return user.email.charAt(0).toUpperCase();
+    }
+    return "U";
+  };
 
   return (
     <aside className="fixed left-0 top-0 h-full w-64 glass-strong border-r border-border/50 z-50 flex flex-col">
@@ -182,13 +208,34 @@ export const Sidebar = ({ activeTab, onTabChange }: SidebarProps) => {
         </div>
       </nav>
 
-      {/* Settings */}
-      <div className="p-4 border-t border-border/50">
-        <NavItem
-          icon={<Settings size={20} />}
-          label="Settings"
-          onClick={() => onTabChange("settings")}
-        />
+      {/* User Profile & Logout */}
+      <div className="p-4 border-t border-border/50 space-y-2">
+        {/* User Card */}
+        <div className="p-3 rounded-xl glass hover:bg-muted/50 transition-all cursor-pointer">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-cosmic-violet to-cosmic-magenta flex items-center justify-center text-sm font-bold text-foreground">
+              {getUserInitial()}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold text-foreground text-sm truncate">
+                {user?.email || "User"}
+              </p>
+              <p className="text-xs text-muted-foreground truncate">
+                View Profile
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Logout Button */}
+        <Button
+          variant="ghost"
+          className="w-full justify-start gap-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+          onClick={handleLogout}
+        >
+          <LogOut size={18} />
+          <span className="font-medium">Logout</span>
+        </Button>
       </div>
     </aside>
   );

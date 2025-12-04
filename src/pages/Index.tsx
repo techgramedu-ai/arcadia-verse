@@ -8,6 +8,7 @@ import { GroupsSection } from "@/components/groups/GroupsSection";
 import { ExploreSection } from "@/components/explore/ExploreSection";
 import { MessagesSection } from "@/components/messages/MessagesSection";
 import { CosmicBackground } from "@/components/shared/CosmicBackground";
+import { SupabaseConnectionTest } from "@/components/SupabaseConnectionTest";
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState("home");
@@ -35,15 +36,15 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background relative">
-        <CosmicBackground />
-        
-        <div className="relative z-10 flex">
-          <Sidebar activeTab={activeTab} onTabChange={setActiveTab} />
-          
-          <main className="flex-1 ml-64">
-            {renderContent()}
-          </main>
-        </div>
+      <CosmicBackground />
+
+      <div className="relative z-10 flex">
+        <Sidebar activeTab={activeTab} onTabChange={setActiveTab} />
+
+        <main className="flex-1 ml-64">
+          {renderContent()}
+        </main>
+      </div>
     </div>
   );
 };
