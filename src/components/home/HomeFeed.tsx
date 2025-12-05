@@ -12,30 +12,31 @@ import { formatDistanceToNow } from "date-fns";
 
 // Adapter function to transform database post to PostCard format
 const adaptPostForCard = (post: any) => {
-  const content = post.content || {};
-  const caption = post.caption || content.text || "";
-  const tags = content.tags || [];
+  const caption = post.content || "";
+  const tags = post.tags || [];
 
   return {
+    id: post.id,
     author: {
-      name: post.user?.display_name || post.user?.handle || "Unknown User",
-      username: post.user?.handle || "user",
-      avatar: post.user?.avatar_url || post.user?.handle?.charAt(0).toUpperCase() || "U",
-      verified: post.user?.is_verified || false,
-      badge: post.user?.metadata?.badge,
+      name: post.profiles?.display_name || post.profiles?.username || "Unknown User",
+      username: post.profiles?.username || "user",
+      avatar: post.profiles?.avatar_url || null,
+      verified: post.profiles?.verified || false,
+      badge: post.profiles?.badge,
     },
     content: {
       text: caption,
-      media: content.media,
+      media: post.media_url ? { type: post.media_type || 'image', url: post.media_url } : null,
       tags: Array.isArray(tags) ? tags : [],
     },
     engagement: {
-      likes: 0, // Will be populated from likes table
-      comments: 0, // Will be populated from comments table
-      shares: 0,
+      likes: post.likes_count || 0,
+      comments: post.comments_count || 0,
+      shares: post.shares_count || 0,
     },
-    timestamp: formatDistanceToNow(new Date(post.created_at), { addSuffix: true }),
-    examCategory: content.examCategory,
+    timestamp: post.created_at,
+    examCategory: post.exam_category,
+    userHasLiked: post.user_has_liked || false,
   };
 };
 

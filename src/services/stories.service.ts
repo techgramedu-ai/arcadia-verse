@@ -1,26 +1,21 @@
-import { supabase } from '@/lib/supabase'
-import type { Story } from '@/types/database.types'
+import { supabase } from '@/integrations/supabase/client'
 
 export interface CreateStoryData {
-    mediaId: string
-    privacy?: any
+    media_url: string
+    media_type?: string
 }
 
 export const storiesService = {
     /**
-     * Create a new story (expires in 24 hours)
+     * Create a new story
      */
     async createStory(userId: string, data: CreateStoryData) {
-        const expiresAt = new Date()
-        expiresAt.setHours(expiresAt.getHours() + 24)
-
         const { data: story, error } = await supabase
             .from('stories')
             .insert({
                 user_id: userId,
-                media_id: data.mediaId,
-                expires_at: expiresAt.toISOString(),
-                privacy: data.privacy || {},
+                media_url: data.media_url,
+                media_type: data.media_type || 'image',
             })
             .select()
             .single()
@@ -30,85 +25,58 @@ export const storiesService = {
     },
 
     /**
-     * Get active stories (not expired)
-     */
-    async getActiveStories(userId?: string) {
-        let query = supabase
-            .from('stories')
-            .select(`
-        *,
-        user:users!stories_user_id_fkey(id, handle, display_name, avatar_url, is_verified),
-        media:media!stories_media_id_fkey(*)
-      `)
-            .gt('expires_at', new Date().toISOString())
-            .order('created_at', { ascending: false })
-
-        if (userId) {
-            query = query.eq('user_id', userId)
-        }
-
-        const { data, error } = await query
-
-        if (error) throw error
-        return data
-    },
-
-    /**
      * Get stories from followed users
      */
     async getFollowingStories(userId: string) {
-        // Get list of users the current user follows
         const { data: following } = await supabase
             .from('follows')
-            .select('followee_id')
+            .select('following_id')
             .eq('follower_id', userId)
 
-        if (!following || following.length === 0) return []
-
-        const followeeIds = following.map((f) => f.followee_id)
+        const followingIds = following?.map(f => f.following_id) || []
+        followingIds.push(userId)
 
         const { data: stories, error } = await supabase
             .from('stories')
-            .select(`
-        *,
-        user:users!stories_user_id_fkey(id, handle, display_name, avatar_url, is_verified),
-        media:media!stories_media_id_fkey(*)
-      `)
-            .in('user_id', followeeIds)
+            .select('*')
+            .in('user_id', followingIds)
             .gt('expires_at', new Date().toISOString())
             .order('created_at', { ascending: false })
 
         if (error) throw error
-        return stories
+
+        // Get profiles
+        const userIds = [...new Set((stories || []).map(s => s.user_id))]
+        const { data: profiles } = await supabase
+            .from('profiles')
+            .select('user_id, username, display_name, avatar_url')
+            .in('user_id', userIds)
+
+        const profileMap = new Map(profiles?.map(p => [p.user_id, p]) || [])
+
+        return (stories || []).map(story => ({
+            ...story,
+            profiles: profileMap.get(story.user_id) || null,
+        }))
     },
 
     /**
-     * View a story (increment view count)
+     * Get user stories
      */
-    async viewStory(storyId: string) {
-        const { error } = await supabase.rpc('increment_story_views', {
-            story_id: storyId,
-        })
+    async getUserStories(userId: string) {
+        const { data, error } = await supabase
+            .from('stories')
+            .select('*')
+            .eq('user_id', userId)
+            .gt('expires_at', new Date().toISOString())
+            .order('created_at', { ascending: false })
 
-        // If RPC doesn't exist, fallback to manual increment
-        if (error) {
-            const { data: story } = await supabase
-                .from('stories')
-                .select('viewers_count')
-                .eq('id', storyId)
-                .single()
-
-            if (story) {
-                await supabase
-                    .from('stories')
-                    .update({ viewers_count: (story.viewers_count || 0) + 1 })
-                    .eq('id', storyId)
-            }
-        }
+        if (error) throw error
+        return data || []
     },
 
     /**
-     * Delete a story
+     * Delete story
      */
     async deleteStory(storyId: string, userId: string) {
         const { error } = await supabase
@@ -121,14 +89,18 @@ export const storiesService = {
     },
 
     /**
-     * Delete expired stories (cleanup function)
+     * Increment view count
      */
-    async deleteExpiredStories() {
-        const { error } = await supabase
+    async viewStory(storyId: string) {
+        const { data: story } = await supabase
             .from('stories')
-            .delete()
-            .lt('expires_at', new Date().toISOString())
+            .select('views_count')
+            .eq('id', storyId)
+            .single()
 
-        if (error) throw error
+        await supabase
+            .from('stories')
+            .update({ views_count: (story?.views_count || 0) + 1 })
+            .eq('id', storyId)
     },
 }

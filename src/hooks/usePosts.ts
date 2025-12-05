@@ -113,3 +113,38 @@ export const useUserPosts = (userId: string) => {
         fetchNextPage,
     }
 }
+
+// Like post hook
+export const useLikePost = () => {
+    const queryClient = useQueryClient()
+    const { user } = useAuth()
+
+    return useMutation({
+        mutationFn: async ({ postId, isLiked }: { postId: string; isLiked: boolean }) => {
+            if (!user) throw new Error('Must be logged in')
+            
+            if (isLiked) {
+                // Unlike
+                const { error } = await import('@/integrations/supabase/client').then(m => 
+                    m.supabase
+                        .from('post_likes')
+                        .delete()
+                        .eq('post_id', postId)
+                        .eq('user_id', user.id)
+                )
+                if (error) throw error
+            } else {
+                // Like
+                const { error } = await import('@/integrations/supabase/client').then(m =>
+                    m.supabase
+                        .from('post_likes')
+                        .insert({ post_id: postId, user_id: user.id })
+                )
+                if (error) throw error
+            }
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['posts'] })
+        },
+    })
+}

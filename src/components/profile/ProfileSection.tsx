@@ -41,25 +41,25 @@ export const ProfileSection = () => {
   }
 
   const profileData = {
-    name: profileUser?.display_name || profileUser?.handle || "User",
-    username: profileUser?.handle || "user",
-    avatar: profileUser?.avatar_url || profileUser?.handle?.charAt(0).toUpperCase() || "U",
+    name: profileUser?.display_name || profileUser?.username || "User",
+    username: profileUser?.username || "user",
+    avatar: profileUser?.avatar_url || profileUser?.username?.charAt(0).toUpperCase() || "U",
     coverGradient: "from-cosmic-violet via-cosmic-magenta to-cosmic-cyan",
-    bio: profileUser?.metadata?.bio || "Welcome to my profile!",
-    location: profileUser?.metadata?.location || "",
+    bio: profileUser?.bio || "Welcome to my profile!",
+    location: profileUser?.location || "",
     joined: profileUser?.created_at ? `Joined ${formatDistanceToNow(new Date(profileUser.created_at), { addSuffix: true })}` : "",
-    website: profileUser?.metadata?.website || "",
-    currentTarget: profileUser?.metadata?.currentTarget || "",
+    website: profileUser?.website || "",
+    currentTarget: profileUser?.exam_category || "",
     stats: {
-      posts: stats?.posts_count || 0,
-      followers: stats?.followers_count || 0,
-      following: stats?.following_count || 0,
+      posts: stats?.posts || 0,
+      followers: stats?.followers || 0,
+      following: stats?.following || 0,
       reels: 0,
     },
-    achievements: profileUser?.metadata?.achievements || [],
-    skills: profileUser?.metadata?.skills || [],
-    education: profileUser?.metadata?.education || [],
-    experience: profileUser?.metadata?.experience || [],
+    achievements: [],
+    skills: [],
+    education: [],
+    experience: [],
   };
   return (
     <div className="min-h-screen">
@@ -300,28 +300,28 @@ export const ProfileSection = () => {
               </div>
             ) : (
               <div className="grid grid-cols-3 gap-2">
-                {posts.map((post) => (
-                  <div
-                    key={post.id}
-                    className="aspect-square rounded-xl bg-gradient-to-br from-muted to-card relative group cursor-pointer overflow-hidden"
-                  >
-                    {post.content?.media?.type === "video" && (
-                      <div className="absolute top-2 right-2">
-                        <Play size={16} className="text-foreground" />
+                  {posts.map((post) => (
+                    <div
+                      key={post.id}
+                      className="aspect-square rounded-xl bg-gradient-to-br from-muted to-card relative group cursor-pointer overflow-hidden"
+                    >
+                      {post.media_type === "video" && (
+                        <div className="absolute top-2 right-2">
+                          <Play size={16} className="text-foreground" />
+                        </div>
+                      )}
+                      <div className="absolute inset-0 bg-background/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-4">
+                        <span className="text-foreground text-sm font-medium">View Post</span>
                       </div>
-                    )}
-                    <div className="absolute inset-0 bg-background/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-4">
-                      <span className="text-foreground text-sm font-medium">View Post</span>
                     </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </TabsContent>
+                  ))}
+                </div>
+              )}
+            </TabsContent>
 
-          <TabsContent value="reels" className="mt-4">
-            <div className="grid grid-cols-3 gap-2">
-              {posts.filter(p => p.type === "video").map((post) => (
+            <TabsContent value="reels" className="mt-4">
+              <div className="grid grid-cols-3 gap-2">
+                {posts.filter(p => p.media_type === "video").map((post) => (
                 <div
                   key={post.id}
                   className="aspect-[9/16] rounded-xl bg-gradient-to-br from-muted to-card relative group cursor-pointer overflow-hidden"
