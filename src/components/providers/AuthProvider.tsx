@@ -1,10 +1,8 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react'
-import { User } from '@/types/database.types'
 import { authService } from '@/services/auth.service'
-import { usersService } from '@/services/users.service'
 
 interface AuthContextType {
-    user: User | null
+    user: any | null
     isLoading: boolean
     isAuthenticated: boolean
 }
@@ -28,20 +26,14 @@ interface AuthProviderProps {
 }
 
 export const AuthProvider = ({ children }: AuthProviderProps) => {
-    const [user, setUser] = useState<User | null>(null)
+    const [user, setUser] = useState<any | null>(null)
     const [isLoading, setIsLoading] = useState(true)
 
     useEffect(() => {
-        // Check for existing session
         const initAuth = async () => {
             try {
                 const currentUser = await authService.getCurrentUser()
-                setUser(currentUser as any as User)
-
-                // Update last seen
-                if (currentUser) {
-                    usersService.updateLastSeen(currentUser.id)
-                }
+                setUser(currentUser)
             } catch (error) {
                 console.error('Auth initialization error:', error)
                 setUser(null)
@@ -52,31 +44,14 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
         initAuth()
 
-        // Listen for auth state changes
         const { data: { subscription } } = authService.onAuthStateChange((authUser) => {
-            setUser(authUser as any as User)
-
-            // Update last seen when user signs in
-            if (authUser) {
-                usersService.updateLastSeen(authUser.id)
-            }
+            setUser(authUser)
         })
 
         return () => {
             subscription?.unsubscribe()
         }
     }, [])
-
-    // Update last seen periodically
-    useEffect(() => {
-        if (!user) return
-
-        const interval = setInterval(() => {
-            usersService.updateLastSeen(user.id)
-        }, 5 * 60 * 1000) // Every 5 minutes
-
-        return () => clearInterval(interval)
-    }, [user])
 
     const value = {
         user,

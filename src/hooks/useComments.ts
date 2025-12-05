@@ -20,21 +20,32 @@ export const useComments = (postId: string) => {
   return useQuery({
     queryKey: ['comments', postId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      // First get comments
+      const { data: comments, error } = await supabase
         .from('comments')
-        .select(`
-          *,
-          profiles!comments_user_id_fkey (
-            username,
-            display_name,
-            avatar_url
-          )
-        `)
+        .select('*')
         .eq('post_id', postId)
         .order('created_at', { ascending: true });
 
       if (error) throw error;
-      return data as Comment[];
+      if (!comments || comments.length === 0) return [];
+
+      // Get unique user IDs
+      const userIds = [...new Set(comments.map(c => c.user_id))];
+
+      // Fetch profiles for those users
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('user_id, username, display_name, avatar_url')
+        .in('user_id', userIds);
+
+      const profileMap = new Map(profiles?.map(p => [p.user_id, p]) || []);
+
+      // Combine comments with profiles
+      return comments.map(comment => ({
+        ...comment,
+        profiles: profileMap.get(comment.user_id) || null,
+      })) as Comment[];
     },
     enabled: !!postId,
   });
